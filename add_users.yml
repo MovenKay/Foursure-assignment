@@ -1,0 +1,53 @@
+---
+- name: Add users and create a group for developers
+  hosts: db01
+  become: yes
+
+  vars:
+    developer_users:
+      - name: nathank
+        group: developers
+      - name: kaylak
+        group: developers
+      - name: admin
+        group: admins
+
+  tasks:
+    - name: Create the developers group
+      group:
+        name: developers
+        state: present
+
+    - name: Create the admins group
+      group:
+        name: admins
+        state: present
+
+    - name: Create developer users
+      user:
+        name: "{{ item.name }}"
+        group: "{{ item.group }}"
+        state: present
+      loop: "{{ developer_users }}"
+
+    - name: Create admin user
+      user:
+        name: "{{ developer_users[2].name }}"
+        group: "{{ developer_users[2].group }}"
+        state: present
+
+    - name: Set read-only access to logs for developers group
+      file:
+        path: /var/log/
+        state: directory
+        owner: root
+        group: developers
+        mode: "0750"
+
+    - name: Set read-only access to logs files for developers group
+      file:
+        path: /var/log/*
+        state: directory
+        owner: root
+        group: developers
+        mode: "0640"
