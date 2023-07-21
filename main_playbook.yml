@@ -1,0 +1,16 @@
+---
+- name: Main Playbook
+  hosts: 
+   - db01
+     web01
+  gather_facts: yes
+
+  tasks:
+    - name: Include add_users.yml
+      include: add_users.yml
+
+    - name: Include deploy_nginx.yml
+      include: deploy_nginx.yml
+
+      name: Include nginx_config.j2.yml
+      include: nginx_config.j2.yml

@@ -1,0 +1,54 @@
+---
+- name: Deploy Nginx with Let's Encrypt Certificates
+  hosts: web01
+  become: yes
+
+  tasks:
+    - name: Install EPEL repository (required for Certbot)
+      yum:
+        name: epel-release
+        state: present
+
+    - name: Install Nginx
+      yum:
+        name: nginx
+        state: present
+
+    - name: Install Certbot and dependencies
+      yum:
+        name: certbot python3-certbot-nginx
+        state: present
+
+    - name: Start and enable Nginx service
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Obtain SSL certificates with Certbot
+      command: "certbot --nginx --agree-tos --redirect -m karimanziramoven@gmail.com -d karimanziramoven.com -d kubevro.netmoven.com"
+      args:
+        creates: /etc/letsencrypt/live/karimanziramoven@gmail.com/fullchain.pem
+
+    - name: Copy Nginx configuration file
+      template:
+        src: nginx_config.j2
+        dest: /etc/nginx/sites-available/wb01
+        mode: 0644
+
+    - name: Create symbolic link for Nginx configuration
+      file:
+        src: /etc/nginx/sites-available/wb01
+        dest: /etc/nginx/sites-enabled/
+        state: link
+
+    - name: Test Nginx configuration
+      command: nginx -t
+      register: nginx_test_result
+      changed_when: false
+
+    - name: Reload Nginx if the configuration is valid
+      service:
+        name: nginx
+        state: reloaded
+      when: nginx_test_result.rc == 0
