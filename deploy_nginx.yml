@@ -1,7 +1,11 @@
 ---
-- name: Deploy Nginx with Let's Encrypt Certificates
-  hosts: web01
-  become: yes
+- name: Deploy Web Application on Nginx with Certbot
+  hosts: wb01
+  become: true
+
+  vars:
+    domain_name: netmoven.com
+    email_address: karimanziramoven@gmail.com
 
   tasks:
     - name: Install EPEL repository (required for Certbot)
@@ -25,30 +29,38 @@
         state: started
         enabled: yes
 
-    - name: Obtain SSL certificates with Certbot
-      command: "certbot --nginx --agree-tos --redirect -m karimanziramoven@gmail.com -d karimanziramoven.com -d kubevro.netmoven.com"
-      args:
-        creates: /etc/letsencrypt/live/karimanziramoven@gmail.com/fullchain.pem
+    - name: Create directory for web application
+      file:
+        path: /usr/share/nginx/html
+        state: directory
+        mode: 0755
 
-    - name: Copy Nginx configuration file
+    - name: Copy index.html to web application directory
+      copy:
+        src: index.html
+        dest: /usr/share/nginx/html/index.html
+
+    - name: Set up Nginx configuration
       template:
         src: nginx_config.j2
-        dest: /etc/nginx/sites-available/wb01
+        dest: /etc/nginx/sites-available/{{ domain_name }}
         mode: 0644
+      notify:
+        - Reload Nginx
 
-    - name: Create symbolic link for Nginx configuration
+    - name: Enable Nginx virtual host
       file:
-        src: /etc/nginx/sites-available/wb01
+        src: /etc/nginx/sites-available/{{ domain_name }}
         dest: /etc/nginx/sites-enabled/
         state: link
 
-    - name: Test Nginx configuration
-      command: nginx -t
-      register: nginx_test_result
-      changed_when: false
+    - name: Obtain SSL certificates with Certbot
+      shell: certbot --nginx --agree-tos --redirect --non-interactive --email {{ email_address }} -d {{ domain_name }}
+      notify:
+        - Reload Nginx
 
-    - name: Reload Nginx if the configuration is valid
+  handlers:
+    - name: Reload Nginx
       service:
         name: nginx
         state: reloaded
-      when: nginx_test_result.rc == 0
